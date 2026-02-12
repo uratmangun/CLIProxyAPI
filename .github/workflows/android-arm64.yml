@@ -58,7 +58,7 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           tag_name: android-arm64-upstream-${{ steps.upstream_meta.outputs.short_sha }}-${{ github.run_number }}
-          name: Android arm64 upstream/main ${{ steps.upstream_meta.outputs.short_sha }}
+          name: Android arm64 upstream/${{ steps.upstream_meta.outputs.source_ref }} ${{ steps.upstream_meta.outputs.short_sha }}
           target_commitish: ${{ github.sha }}
           prerelease: false
           generate_release_notes: true
