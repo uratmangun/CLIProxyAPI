@@ -3,8 +3,14 @@ name: android-arm64-build
 on:
   push:
     branches:
-      - fork-main-snapshot
+      - android-upstream-release
   workflow_dispatch:
+    inputs:
+      source_ref:
+        description: Upstream ref to build (branch, tag, or SHA)
+        required: false
+        default: main
+        type: string
 
 permissions:
   contents: write
@@ -15,6 +21,17 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          repository: router-for-me/CLIProxyAPI
+          ref: ${{ github.event.inputs.source_ref || 'main' }}
+      - name: Capture upstream commit metadata
+        id: upstream_meta
+        env:
+          SOURCE_REF: ${{ github.event.inputs.source_ref || 'main' }}
+        run: |
+          echo "source_ref=${SOURCE_REF}" >> "$GITHUB_OUTPUT"
+          echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+          echo "short_sha=$(git rev-parse --short=12 HEAD)" >> "$GITHUB_OUTPUT"
       - name: Set up Go
         uses: actions/setup-go@v5
         with:
@@ -36,15 +53,18 @@ jobs:
           path: |
             CLIProxyAPI-android-arm64.tar.gz
             CLIProxyAPI-android-arm64.zip
-      - name: Create prerelease with Android artifacts
-        if: github.ref_name == 'fork-main-snapshot'
+      - name: Create release with Android artifacts
+        if: github.ref_name == 'android-upstream-release'
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: android-arm64-${{ github.sha }}
-          name: Android arm64 build ${{ github.sha }}
+          tag_name: android-arm64-upstream-${{ steps.upstream_meta.outputs.short_sha }}-${{ github.run_number }}
+          name: Android arm64 upstream/main ${{ steps.upstream_meta.outputs.short_sha }}
           target_commitish: ${{ github.sha }}
-          prerelease: true
+          prerelease: false
           generate_release_notes: true
+          body: |
+            Built from `router-for-me/CLIProxyAPI@${{ steps.upstream_meta.outputs.sha }}`
+            Source ref: `${{ steps.upstream_meta.outputs.source_ref }}`
           files: |
             CLIProxyAPI-android-arm64.tar.gz
             CLIProxyAPI-android-arm64.zip
