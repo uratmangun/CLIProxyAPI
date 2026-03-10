@@ -24,6 +24,7 @@ jobs:
         with:
           repository: router-for-me/CLIProxyAPI
           ref: ${{ github.event.inputs.source_ref || 'main' }}
+          fetch-depth: 0
       - name: Capture upstream commit metadata
         id: upstream_meta
         env:
@@ -32,6 +33,10 @@ jobs:
           echo "source_ref=${SOURCE_REF}" >> "$GITHUB_OUTPUT"
           echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
           echo "short_sha=$(git rev-parse --short=12 HEAD)" >> "$GITHUB_OUTPUT"
+          VERSION=$(git describe --tags --always 2>/dev/null || echo "dev")
+          VERSION="${VERSION#v}"
+          echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
+          echo "build_date=$(date -u +%Y-%m-%dT%H:%M:%SZ)" >> "$GITHUB_OUTPUT"
       - name: Set up Go
         uses: actions/setup-go@v5
         with:
@@ -43,7 +48,9 @@ jobs:
           GOOS: android
           GOARCH: arm64
         run: |
-          go build -o CLIProxyAPI ./cmd/server
+          go build \
+            -ldflags "-s -w -X 'main.Version=${{ steps.upstream_meta.outputs.version }}' -X 'main.Commit=${{ steps.upstream_meta.outputs.short_sha }}' -X 'main.BuildDate=${{ steps.upstream_meta.outputs.build_date }}'" \
+            -o CLIProxyAPI ./cmd/server
           tar -czf CLIProxyAPI-android-arm64.tar.gz CLIProxyAPI
           zip -q CLIProxyAPI-android-arm64.zip CLIProxyAPI
       - name: Upload workflow artifacts
@@ -57,14 +64,15 @@ jobs:
         if: github.ref_name == 'android-upstream-release'
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: android-arm64-upstream-${{ steps.upstream_meta.outputs.short_sha }}-${{ github.run_number }}
-          name: Android arm64 upstream/${{ steps.upstream_meta.outputs.source_ref }} ${{ steps.upstream_meta.outputs.short_sha }}
+          tag_name: android-arm64-v${{ steps.upstream_meta.outputs.version }}
+          name: Android arm64 v${{ steps.upstream_meta.outputs.version }}
           target_commitish: ${{ github.sha }}
           prerelease: false
           generate_release_notes: true
           body: |
             Built from `router-for-me/CLIProxyAPI@${{ steps.upstream_meta.outputs.sha }}`
             Source ref: `${{ steps.upstream_meta.outputs.source_ref }}`
+            Version: `${{ steps.upstream_meta.outputs.version }}`
           files: |
             CLIProxyAPI-android-arm64.tar.gz
             CLIProxyAPI-android-arm64.zip
