@@ -42,15 +42,24 @@ jobs:
         with:
           go-version-file: go.mod
           cache: true
+      - name: Install Android NDK
+        run: |
+          ANDROID_NDK_VERSION=r27c
+          wget -q "https://dl.google.com/android/repository/android-ndk-${ANDROID_NDK_VERSION}-linux.zip" -O /tmp/ndk.zip
+          unzip -q /tmp/ndk.zip -d /tmp
+          echo "ANDROID_NDK_HOME=/tmp/android-ndk-${ANDROID_NDK_VERSION}" >> "$GITHUB_ENV"
       - name: Build (Android arm64)
         env:
-          CGO_ENABLED: "0"
+          CGO_ENABLED: "1"
           GOOS: android
           GOARCH: arm64
         run: |
+          export CC="${ANDROID_NDK_HOME}/toolchains/llvm/prebuilt/linux-x86_64/bin/aarch64-linux-android24-clang"
+          export CXX="${ANDROID_NDK_HOME}/toolchains/llvm/prebuilt/linux-x86_64/bin/aarch64-linux-android24-clang++"
           go build \
             -ldflags "-s -w -X 'main.Version=${{ steps.upstream_meta.outputs.version }}' -X 'main.Commit=${{ steps.upstream_meta.outputs.short_sha }}' -X 'main.BuildDate=${{ steps.upstream_meta.outputs.build_date }}'" \
             -o CLIProxyAPI ./cmd/server
+          file CLIProxyAPI
           tar -czf CLIProxyAPI-android-arm64.tar.gz CLIProxyAPI
           zip -q CLIProxyAPI-android-arm64.zip CLIProxyAPI
       - name: Upload workflow artifacts
